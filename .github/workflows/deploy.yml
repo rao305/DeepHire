@@ -1,0 +1,82 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: ['**']
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check and build
+        env:
+          # Dummy environment variables for build
+          DATABASE_URL: postgresql://dummy:dummy@localhost/dummy
+          CLERK_SECRET_KEY: sk_test_dummy
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_dummy
+          CLERK_WEBHOOK_SECRET: whsec_dummy
+          R2_ACCOUNT_ID: dummy
+          R2_ACCESS_KEY_ID: dummy
+          R2_SECRET_ACCESS_KEY: dummy
+          R2_BUCKET_NAME: dummy
+          R2_PUBLIC_URL: https://dummy.r2.dev
+          GITHUB_TOKEN: dummy
+          OPENROUTER_API_KEY: sk-or-v1-dummy
+          INNGEST_EVENT_KEY: dummy
+          INNGEST_SIGNING_KEY: signkey-prod-dummy
+        run: npm run build
+
+  pre-deploy-check:
+    name: Pre-Deploy Check
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    needs: test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run pre-deployment checks
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+          CLERK_WEBHOOK_SECRET: ${{ secrets.CLERK_WEBHOOK_SECRET }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+          R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          INNGEST_EVENT_KEY: ${{ secrets.INNGEST_EVENT_KEY }}
+          INNGEST_SIGNING_KEY: ${{ secrets.INNGEST_SIGNING_KEY }}
+        run: npm run deploy:check
